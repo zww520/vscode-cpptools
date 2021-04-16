@@ -8,11 +8,12 @@ import * as os from 'os';
 import { AttachPicker, RemoteAttachPicker, AttachItemsProvider } from './attachToProcess';
 import { NativeAttachItemsProviderFactory } from './nativeAttach';
 import { QuickPickConfigurationProvider, ConfigurationAssetProviderFactory, CppVsDbgConfigurationProvider, CppDbgConfigurationProvider, ConfigurationSnippetProvider, IConfigurationAssetProvider } from './configurationProvider';
-import { CppdbgDebugAdapterDescriptorFactory, CppvsdbgDebugAdapterDescriptorFactory } from './debugAdapterDescriptorFactory';
+import { CppdbgDebugAdapterDescriptorFactory, CppdbgTrackerAdapterDescriptionFactor, CppvsdbgDebugAdapterDescriptorFactory } from './debugAdapterDescriptorFactory';
 import * as util from '../common';
 import * as Telemetry from '../telemetry';
 import * as nls from 'vscode-nls';
 import { cppBuildTaskProvider } from '../LanguageServer/extension';
+import { DisassemblyPage as DisassemblyPage } from './disassemblyPage';
 
 nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
 const localize: nls.LocalizeFunc = nls.loadMessageBundle();
@@ -141,6 +142,12 @@ export function initialize(context: vscode.ExtensionContext): void {
     // Register Debug Adapters
     disposables.push(vscode.debug.registerDebugAdapterDescriptorFactory(CppvsdbgDebugAdapterDescriptorFactory.DEBUG_TYPE, new CppvsdbgDebugAdapterDescriptorFactory(context)));
     disposables.push(vscode.debug.registerDebugAdapterDescriptorFactory(CppdbgDebugAdapterDescriptorFactory.DEBUG_TYPE, new CppdbgDebugAdapterDescriptorFactory(context)));
+
+    // Register Debug Tracker for Disassembly
+    const trackerFactory = new CppdbgTrackerAdapterDescriptionFactor(context);
+    disposables.push(vscode.debug.registerDebugAdapterTrackerFactory(CppdbgTrackerAdapterDescriptionFactor.DEBUG_TYPE, trackerFactory));
+    disposables.push(vscode.debug.registerDebugAdapterTrackerFactory(CppdbgTrackerAdapterDescriptionFactor.DEBUG_TYPE_VS, trackerFactory));
+    disposables.push(vscode.commands.registerCommand('C_Cpp.OpenDisassembly', () => DisassemblyPage.createOrShow(context, trackerFactory)));
 
     vscode.Disposable.from(...disposables);
 }

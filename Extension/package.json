@@ -1306,6 +1306,11 @@
         "command": "C_Cpp.GoToPrevDirectiveInGroup",
         "title": "%c_cpp.command.GoToPrevDirectiveInGroup.title%",
         "category": "C/C++"
+      },
+      {
+        "command": "C_Cpp.OpenDisassembly",
+        "title": "__Open_Disassembly__",
+        "category": "C/C++"
       }
     ],
     "keybindings": [
