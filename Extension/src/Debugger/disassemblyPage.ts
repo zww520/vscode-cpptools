@@ -38,30 +38,16 @@ export class DisassemblyPage {
 
     private constructor(panel: vscode.WebviewPanel, extensionPath: string, debugTracker: CppdbgTrackerAdapterDescriptionFactor) {
         this._panel = panel;
-        // this.debugTracker = debugTracker;
-
-        // let iotExtension: vscode.Extension<any> | undefined = vscode.extensions.getExtension('vsciot-vscode.azure-iot-toolkit');
-        // let iotTooltip: string = "Page ToolTip";
-
-        /*
-        if (iotExtension) {
-            iotTooltip = resources.welcomePageOpenAzureIotTooltip;
-        } else {
-            iotTooltip = resources.welcomePageInstallAzureIotTooltip;
-        }
-        */
-
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._panel.webview.onDidReceiveMessage(message => {
             if (message.command === 'iothubClicked') {
-                debugTracker.getActiveDebugAdapterTracker()?.sendDisassemblyRequest('', 0, 0, 10).then(response => {
+                debugTracker.getActiveDebugAdapterTracker()?.sendDisassemblyRequestByFrame(0, 0, 0, 10).then(response => {
                     const instructions: debugProtocol.DebugProtocol.DisassembledInstruction[] = response.instructions;
                     let msg = '';
-                    instructions.forEach(instr => msg += `${instr.address} | ${instr.instruction} | ${instr.instructionBytes} | ${instr.line} | ${instr.location}<br><br>`)
+                    instructions.forEach(instr => msg += `${instr.address} | ${instr.instructionBytes} | ${instr.instruction} | ${instr.line} | ${instr.location}<br>`)
                     this._panel.webview.postMessage({command:"print", instruction: msg});
                 }
                 );
-
             }
         }, null, this._disposables);
 

@@ -88,13 +88,29 @@ enum DebugSessionState {
 
 export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
     private state: DebugSessionState;
-    // private instructionPointerReference: string | undefined;
     private stackFrames: debugProtocol.DebugProtocol.StackFrame[] | undefined = undefined;
 
     constructor(private session: vscode.DebugSession) {
         this.state = DebugSessionState.Unknown;
     }
 
+    /*
+        frame: stackFrame
+    */
+    sendDisassemblyRequestByFrame(frame: number, offset: number, instructionOffset: number, instructionCount: number): Thenable<any> {
+        if (this.state == DebugSessionState.Stopped)
+        {
+            if (!this.stackFrames || frame > this.stackFrames.length
+                || !this.stackFrames[frame].instructionPointerReference) {
+                return Promise.resolve();
+            }
+
+            const address:string = this.stackFrames[frame].instructionPointerReference!;
+
+            return this.sendDisassemblyRequest(address, offset, instructionOffset, instructionCount);
+        }
+        return Promise.resolve();
+    }
     /*
         address: Treated as a hex value if prefixed with '0x', or as a decimal value otherwise.
     */
@@ -124,19 +140,37 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
      */
      onWillStartSession?(): void {
         this.state = DebugSessionState.Started;
-        console.log("Started Session")
     }
     /**
      * The debug adapter is about to receive a Debug Adapter Protocol message from VS Code.
      */
     onWillReceiveMessage?(message: any): void {
-        console.log("Message onWillReceiveMessage!")
+        if (message) {
+            console.log(message)
+            switch (message.type) {
+                case 'request': {
+                    switch (message.command) {
+                        case 'stepBack':
+                        case 'stepOut':
+                        case 'stepIn':
+                        case 'next': {
+                            if (vscode.window.activeTextEditor?.document.fileName == "") {
+                                message.arguments.granularity='instruction';
+                            }
+                            break;
+                        }
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
     }
     /**
      * The debug adapter has sent a Debug Adapter Protocol message to VS Code.
      */
     onDidSendMessage?(message: any): void {
-        console.log("Message onDidSendMessage!");
         if (message)
         {
             console.log(message)
@@ -147,6 +181,9 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
                     {
                         case "stopped":
                             this.state = DebugSessionState.Stopped;
+                            break;
+                        case "continued":
+                            this.state = DebugSessionState.Running;
                             break;
                         default:
                             break;
@@ -171,13 +208,13 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
      * The debug adapter session is about to be stopped.
      */
     onWillStopSession?(): void {
-        console.log("Stopping soon.")
+        console.log("Stopping!")
     }
     /**
      * An error with the debug adapter has occurred.
      */
     onError?(error: Error): void {
-        console.log("Uh oh!")
+        console.log("Errored!")
     }
     /**
      * The debug adapter has exited with the given exit code or signal.
