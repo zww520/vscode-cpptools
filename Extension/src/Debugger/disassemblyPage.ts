@@ -5,7 +5,7 @@
 // import * as crypto from 'crypto';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { CppdbgTrackerAdapterDescriptionFactor } from './debugAdapterDescriptorFactory';
+import { CppdbgTrackerAdapterDescriptionFactor } from './trackerAdapterDescriptionFactory';
 import * as debugProtocol from "vscode-debugProtocol";
 // import * as resources from '../nativeStrings';
 
