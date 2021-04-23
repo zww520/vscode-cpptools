@@ -22,6 +22,7 @@ import * as nls from 'vscode-nls';
 import { Readable } from 'stream';
 import { PackageManager, IPackage } from './packageManager';
 import * as jsonc from 'comment-json';
+import * as crypto from 'crypto';
 
 nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
 const localize: nls.LocalizeFunc = nls.loadMessageBundle();
@@ -1265,4 +1266,8 @@ export function isCodespaces(): boolean {
 export async function checkCuda(): Promise<void> {
     const langs: string[] = await vscode.languages.getLanguages();
     supportCuda = langs.findIndex((s) => s === "cuda-cpp") !== -1;
+}
+
+export function getNonce() {
+    return crypto.randomBytes(32).toString('hex');
 }

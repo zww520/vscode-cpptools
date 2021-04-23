@@ -147,7 +147,7 @@ export function initialize(context: vscode.ExtensionContext): void {
     const trackerFactory = new CppdbgTrackerAdapterDescriptionFactor(context);
     disposables.push(vscode.debug.registerDebugAdapterTrackerFactory(CppdbgTrackerAdapterDescriptionFactor.DEBUG_TYPE, trackerFactory));
     disposables.push(vscode.debug.registerDebugAdapterTrackerFactory(CppdbgTrackerAdapterDescriptionFactor.DEBUG_TYPE_VS, trackerFactory));
-    disposables.push(vscode.commands.registerCommand('C_Cpp.OpenDisassembly', () => DisassemblyPage.createOrShow(context, trackerFactory)));
+    disposables.push(vscode.commands.registerCommand('C_Cpp.OpenDisassembly', () => DisassemblyPage.createOrShow(trackerFactory)));
 
     vscode.Disposable.from(...disposables);
 }

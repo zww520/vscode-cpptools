@@ -6,112 +6,70 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { CppdbgTrackerAdapterDescriptionFactor } from './debugAdapterDescriptorFactory';
-import * as debugProtocol from "vscode-debugProtocol";
-// import * as resources from '../nativeStrings';
+import * as util from '../common';
+import * as fs from 'fs';
 
 export class DisassemblyPage {
-    public static currentPage?: DisassemblyPage;
+    private static _panel?: vscode.WebviewPanel;
 
-    private readonly _panel: vscode.WebviewPanel;
-    private readonly _disposables: vscode.Disposable[] = [];
-    // private debugTracker: CppdbgTrackerAdapterDescriptionFactor;
+    private static readonly _panelDisposables: vscode.Disposable[] = [];
 
-    public static createOrShow(context: vscode.ExtensionContext, debugTracker: CppdbgTrackerAdapterDescriptionFactor): void {
-        if (DisassemblyPage.currentPage) {
-            DisassemblyPage.currentPage._panel.reveal();
+    public static createOrShow(debugTracker: CppdbgTrackerAdapterDescriptionFactor): void {
+        if (this._panel) {
+            this._panel.reveal();
             return;
         }
 
-        const panel: vscode.WebviewPanel = vscode.window.createWebviewPanel('azuresphere.WelcomePage',
-            '_Disassembly_Window_', vscode.ViewColumn.One,
+        this._panel = vscode.window.createWebviewPanel('disassemblyPage', 'Disassembly', vscode.ViewColumn.One,
             {
                 enableScripts: true,
                 enableCommandUris: true,
-                localResourceRoots: [ vscode.Uri.file(DisassemblyPage.getResourcesPath(context.extensionPath)) ]
-            });
-        DisassemblyPage.currentPage = new DisassemblyPage(panel, context.extensionPath, debugTracker);
-    }
-
-    private static getResourcesPath(extensionPath: string): string {
-        return path.join(extensionPath, 'out', 'Extension', 'welcomePageResources');
-    }
-
-    private constructor(panel: vscode.WebviewPanel, extensionPath: string, debugTracker: CppdbgTrackerAdapterDescriptionFactor) {
-        this._panel = panel;
-        this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-        this._panel.webview.onDidReceiveMessage(message => {
-            if (message.command === 'iothubClicked') {
-                debugTracker.getActiveDebugAdapterTracker()?.sendDisassemblyRequestByFrame(0, 0, 0, 10).then(response => {
-                    const instructions: debugProtocol.DebugProtocol.DisassembledInstruction[] = response.instructions;
-                    let msg = '';
-                    instructions.forEach(instr => msg += `${instr.address} | ${instr.instructionBytes} | ${instr.instruction} | ${instr.line} | ${instr.location}<br>`)
-                    this._panel.webview.postMessage({command:"print", instruction: msg});
-                }
-                );
+                localResourceRoots: [
+                    vscode.Uri.file(util.extensionPath),
+                    vscode.Uri.file(path.join(util.extensionPath, 'ui')),
+                    vscode.Uri.file(path.join(util.extensionPath, 'out', 'ui'))
+                ]
             }
-        }, null, this._disposables);
+        );
 
-        /*
-        const styleUri: vscode.Uri = vscode.Uri.file(path.join(DisassemblyPage.getResourcesPath(extensionPath), 'welcomePageStyle.css'));
-        const scriptUri: vscode.Uri = vscode.Uri.file(path.join(DisassemblyPage.getResourcesPath(extensionPath), 'welcomePageScript.js'));
+        this._panel.webview.html = this.getHtml();
 
-        const styleWebviewUri: vscode.Uri = panel.webview.asWebviewUri(styleUri);
-        const scriptWebviewUri: vscode.Uri = panel.webview.asWebviewUri(scriptUri);
-            <!--
-    Use a content security policy to only allow scripts that have a specific nonce.
-    -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        */
-        // const nonce: string = crypto.randomBytes(32).toString('hex');
+        this._panelDisposables.push(this._panel.onDidDispose(() => this.disposePanel()));
+        this._panelDisposables.push(this._panel.webview.onDidReceiveMessage(message => {
+            if (message.command === 'loadAssembly') {
+                debugTracker.getActiveDebugAdapterTracker()?.sendDisassemblyRequestByFrame(0, 0, 0, 10).then(response => {
+                    // const instructions: debugProtocol.DebugProtocol.DisassembledInstruction[] = response.instructions;
+                    // let msg = '';
+                    // instructions.forEach(instr => msg += `${instr.address} | ${instr.instructionBytes} | ${instr.instruction} | ${instr.line} | ${instr.location}<br>`)
+                    this._panel!.webview.postMessage({command:"insertAssembly", instructions: response.instructions});
+                });
+            }
+        }));
+        debugTracker.getActiveDebugAdapterTracker()?.sendDisassemblyRequestByFrame(0, 0, 0, 10).then(response => {
+            this._panel!.webview.postMessage({command:"insertAssembly", instructions: response.instructions});
+        });
+    }
 
-        this._panel.webview.html =
-`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Disassembly Window</title>
-</head>
-<body>
+    private static getHtml(): string {
+        let content = fs.readFileSync(util.getLocalizedHtmlPath("ui/disassembly.html")).toString();
 
-<h1>Disassembly Window</h1>
-
-<button type="button" id="iothub">GetDisassembly</button>
-<p id="assemblyResult" >BLAH</p>
-
-<script>
-    document.getElementById('assemblyResult').innerHTML = "Script Loading...";
-    // Handle the message inside the webview
-    window.addEventListener('message', event => {
-        const message = event.data; // The JSON data our extension sent
-        switch (message.command) {
-            case 'print':
-                document.getElementById('assemblyResult').innerHTML = message.instruction;
+        if (this._panel && this._panel.webview) {
+            const settingsJsUri: vscode.Uri = this._panel.webview.asWebviewUri(vscode.Uri.file(path.join(util.extensionPath, 'out/ui/disassembly.js')));
+            content = content.replace(/{{disassembly_js_uri}}/g, settingsJsUri.toString());
         }
-    });
 
-    const vscode = acquireVsCodeApi();
-    function iothubClicked() {
-      vscode.postMessage({ command: 'iothubClicked' });
-      document.getElementById('assemblyResult').innerHTML = "Getting Data...";
+        content = content.replace(/{{nonce}}/g, util.getNonce());
+
+        return content;
     }
 
-    const iothubElement = document.getElementById('iothub');
-    iothubElement.onclick = iothubClicked;
-    document.getElementById('assemblyResult').innerHTML = "Script Ready.";
-</script>
-</body>
-</html>`;
-    }
-
-    public dispose(): void {
-        DisassemblyPage.currentPage = undefined;
-        this._panel.dispose();
-        while (this._disposables.length) {
-            const x = this._disposables.pop();
+    public static disposePanel(): void {
+        while (this._panelDisposables.length) {
+            const x = this._panelDisposables.pop();
             if (x) {
                 x.dispose();
             }
         }
+        this._panel = undefined;
     }
 }

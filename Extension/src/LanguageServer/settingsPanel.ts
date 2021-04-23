@@ -370,17 +370,8 @@ export class SettingsPanel {
 
         content = content.replace(
             /{{nonce}}/g,
-            this.getNonce());
+            util.getNonce());
 
         return content;
-    }
-
-    private getNonce(): string {
-        let nonce: string = "";
-        const possible: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        for (let i: number = 0; i < 32; i++) {
-            nonce += possible.charAt(Math.floor(Math.random() * possible.length));
-        }
-        return nonce;
     }
 }
