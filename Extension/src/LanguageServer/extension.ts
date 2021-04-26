@@ -60,23 +60,26 @@ let vcpkgDbPromise: Promise<vcpkgDatabase>;
 function initVcpkgDatabase(): Promise<vcpkgDatabase> {
     return new Promise((resolve, reject) => {
         yauzl.open(util.getExtensionFilePath('VCPkgHeadersDatabase.zip'), { lazyEntries: true }, (err? : Error, zipfile?: yauzl.ZipFile) => {
+            // Resolves with an empty database instead of rejecting on failure.
+            const database: vcpkgDatabase = {};
             if (err || !zipfile) {
-                resolve({});
+                resolve(database);
                 return;
             }
-            zipfile.readEntry();
-            let dbFound: boolean = false;
+            // Waits until the input file is closed before resolving.
+            zipfile.on('close', () => {
+                resolve(database);
+            });
             zipfile.on('entry', entry => {
                 if (entry.fileName !== 'VCPkgHeadersDatabase.txt') {
+                    zipfile.readEntry();
                     return;
                 }
-                dbFound = true;
                 zipfile.openReadStream(entry, (err?: Error, stream?: Readable) => {
                     if (err || !stream) {
-                        resolve({});
+                        zipfile.close();
                         return;
                     }
-                    const database: vcpkgDatabase = {};
                     const reader: rd.ReadLine = rd.createInterface(stream);
                     reader.on('line', (lineText: string) => {
                         const portFilePair: string[] = lineText.split(':');
@@ -94,15 +97,13 @@ function initVcpkgDatabase(): Promise<vcpkgDatabase> {
                         database[relativeHeader].push(portName);
                     });
                     reader.on('close', () => {
-                        resolve(database);
+                        // We found the one file we wanted.
+                        // It's OK to close instead of progressing through more files in the zip.
+                        zipfile.close();
                     });
                 });
             });
-            zipfile.on('end', () => {
-                if (!dbFound) {
-                    resolve({});
-                }
-            });
+            zipfile.readEntry();
         });
     });
 }
@@ -173,9 +174,9 @@ export function activate(activationEventOccurred: boolean): void {
         for (let i: number = 0; i < vscode.workspace.workspaceFolders.length; ++i) {
             const config: string = path.join(vscode.workspace.workspaceFolders[i].uri.fsPath, ".vscode/c_cpp_properties.json");
             if (fs.existsSync(config)) {
+                cppPropertiesExists = true;
                 vscode.workspace.openTextDocument(config).then((doc: vscode.TextDocument) => {
                     vscode.languages.setTextDocumentLanguage(doc, "jsonc");
-                    cppPropertiesExists = true;
                 });
             }
         }
