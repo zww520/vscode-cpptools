@@ -27,7 +27,7 @@ export class DisassemblyPage {
             {
                 enableScripts: true,
                 enableCommandUris: true,
-                localResourceRoots: [ vscode.Uri.file(DisassemblyPage.getResourcesPath(context.extensionPath)) ]
+                localResourceRoots: [vscode.Uri.file(DisassemblyPage.getResourcesPath(context.extensionPath))]
             });
         DisassemblyPage.currentPage = new DisassemblyPage(panel, context.extensionPath, debugTracker);
     }
@@ -40,14 +40,33 @@ export class DisassemblyPage {
         this._panel = panel;
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._panel.webview.onDidReceiveMessage(message => {
-            if (message.command === 'iothubClicked') {
-                debugTracker.getActiveDebugAdapterTracker()?.sendDisassemblyRequestByFrame(0, 0, 0, 10).then(response => {
-                    const instructions: debugProtocol.DebugProtocol.DisassembledInstruction[] = response.instructions;
-                    let msg = '';
-                    instructions.forEach(instr => msg += `${instr.address} | ${instr.instructionBytes} | ${instr.instruction} | ${instr.line} | ${instr.location}<br>`)
-                    this._panel.webview.postMessage({command:"print", instruction: msg});
+            switch (message.command) {
+                case 'iothubClicked': {
+                    const tracker = debugTracker.getActiveDebugAdapterTracker();
+                    if (tracker) {
+                        tracker.sendDisassemblyRequestByFrame(0, 0, 0, 10).then(response => {
+                            const instructions: debugProtocol.DebugProtocol.DisassembledInstruction[] = response.instructions;
+                            let msg = '';
+                            instructions.forEach(instr => msg += `${instr.address} | ${instr.instructionBytes} | ${instr.instruction} | ${instr.line} | ${instr.location}<br>`)
+                            this._panel.webview.postMessage({ command: "print", instruction: msg });
+                        });
+                    }
+                    else {
+                        this._panel.webview.postMessage({ command: "print" });
+                    }
+                    break;
                 }
-                );
+                case 'toggleStep':
+                    {
+                        const tracker = debugTracker.getActiveDebugAdapterTracker();
+                        if (tracker) {
+                            const newStep = !tracker.instructionStep;
+                            tracker.instructionStep = newStep;
+                            this._panel.webview.postMessage({ command: "toggleComplete", isInstructionStepping: newStep });
+                        }
+
+                        break;
+                    }
             }
         }, null, this._disposables);
 
@@ -66,7 +85,7 @@ export class DisassemblyPage {
         // const nonce: string = crypto.randomBytes(32).toString('hex');
 
         this._panel.webview.html =
-`<!DOCTYPE html>
+            `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -76,17 +95,26 @@ export class DisassemblyPage {
 
 <h1>Disassembly Window</h1>
 
-<button type="button" id="iothub">GetDisassembly</button>
-<p id="assemblyResult" >BLAH</p>
+<button type="button" id="iothub">Refresh</button>
+<button type="button" id="stepToggle">Toggle Step: Unknown</button>
+<p id="assemblyResult" >::SCRIPT ERROR::</p>
 
 <script>
     document.getElementById('assemblyResult').innerHTML = "Script Loading...";
+    const stepToggleButton = document.getElementById('stepToggle');
+
     // Handle the message inside the webview
     window.addEventListener('message', event => {
         const message = event.data; // The JSON data our extension sent
         switch (message.command) {
             case 'print':
-                document.getElementById('assemblyResult').innerHTML = message.instruction;
+                if (message.instruction)
+                    document.getElementById('assemblyResult').innerHTML = message.instruction;
+                else
+                    document.getElementById('assemblyResult').innerHTML = "Checked if debugger is active and breakpoint is hit.";
+                break;
+            case 'toggleComplete':
+                stepToggleButton.innerHTML = 'Toggle Step: ' + (message.isInstructionStepping ? 'Instruction' : 'Source Code');
         }
     });
 
@@ -96,9 +124,17 @@ export class DisassemblyPage {
       document.getElementById('assemblyResult').innerHTML = "Getting Data...";
     }
 
+    function toggleIntructionStep() {
+        vscode.postMessage({ command: 'toggleStep' });
+    }
+
+    stepToggleButton.onclick = toggleIntructionStep;
+
     const iothubElement = document.getElementById('iothub');
     iothubElement.onclick = iothubClicked;
     document.getElementById('assemblyResult').innerHTML = "Script Ready.";
+    iothubClicked();
+    toggleIntructionStep();
 </script>
 </body>
 </html>`;

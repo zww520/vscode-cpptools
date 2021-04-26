@@ -15,6 +15,7 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
     private state: DebugSessionState;
     private stackFrames: debugProtocol.DebugProtocol.StackFrame[] | undefined = undefined;
     public instructionBP: debugProtocol.DebugProtocol.InstructionBreakpoint[] = [];
+    public instructionStep: boolean = false;
 
     constructor(private session: vscode.DebugSession) {
         this.state = DebugSessionState.Unknown;
@@ -103,7 +104,7 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
                         case 'stepOut':
                         case 'stepIn':
                         case 'next': {
-                            if (vscode.window.activeTextEditor?.document.fileName == "") {
+                            if (this.instructionStep) {
                                 message.arguments.granularity = 'instruction';
                             }
                             break;
@@ -126,6 +127,10 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
                 case "event":
                     switch (message.event) {
                         case "stopped":
+                            if (this.instructionStep) {
+                                const _message: debugProtocol.DebugProtocol.StoppedEvent = message;
+                                _message.body.preserveFocusHint = true;
+                            }
                             this.state = DebugSessionState.Stopped;
                             break;
                         case "continued":
