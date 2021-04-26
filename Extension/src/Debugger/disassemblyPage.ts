@@ -67,6 +67,9 @@ export class DisassemblyPage {
 
                         break;
                     }
+                case 'toggleBreakPoint': {
+
+                }
             }
         }, null, this._disposables);
 
@@ -112,6 +115,10 @@ export class DisassemblyPage {
     document.getElementById('assemblyResult').innerHTML = "Script Loading...";
     const stepToggleButton = document.getElementById('stepToggle');
 
+    function toggleIntructionBreakPoint(address) {
+        vscode.postMessage({ command: 'toggleBreakPoint', address: address });
+    }
+
     // Handle the message inside the webview
     window.addEventListener('message', event => {
         const message = event.data; // The JSON data our extension sent
@@ -120,9 +127,10 @@ export class DisassemblyPage {
                 if (message.instructions) {
                     let msg = "";
                     message.instructions.forEach(instr => {
-                        msg += '<tr><input type="checkbox"><td>$\{instr.address\}</td><td>$\{instr.instruction\}</td><td>$\{instr.instructionBytes\}</td></tr>'
+                        msg += \`<tr><td><input type="checkbox" onclick="toggleIntructionBreakPoint(\${instr.address})"/></td><td>\${instr.address}</td><td>\${instr.instruction}</td><td>\${instr.instructionBytes}</td></tr>\`
                     });
                     document.getElementById('assemblyTable').innerHTML = msg;
+                    document.getElementById('assemblyResult').innerHTML = "";
                 }
                 else
                     document.getElementById('assemblyResult').innerHTML = "Checked if debugger is active and breakpoint is hit.";
