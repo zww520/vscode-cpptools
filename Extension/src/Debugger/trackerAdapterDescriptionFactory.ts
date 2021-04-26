@@ -20,7 +20,7 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
     constructor(private session: vscode.DebugSession) {
         this.state = DebugSessionState.Unknown;
     }
-    removeDisassemblyBreakPoint(address: string, offset: number | undefined, condition: string | undefined, hitCondition: string | undefined): void {
+    removeDisassemblyBreakPoint(address: string): void {
         this.instructionBP.find((value, index) => {
             if (value.instructionReference == address) this.instructionBP.splice(index, 1);
         });
@@ -39,7 +39,7 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
 
         this.instructionBP.push(newInstructionBP);
     }
-    sendDisassemblyBreakPoint(address: string, offset: number | undefined, condition: string | undefined, hitCondition: string | undefined): Thenable<any> {
+    sendDisassemblyBreakPoint(): Thenable<any> {
         const args: debugProtocol.DebugProtocol.SetInstructionBreakpointsArguments = {
             breakpoints: this.instructionBP
         };

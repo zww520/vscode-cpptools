@@ -46,9 +46,9 @@ export class DisassemblyPage {
                     if (tracker) {
                         tracker.sendDisassemblyRequestByFrame(0, 0, 0, 10).then(response => {
                             const instructions: debugProtocol.DebugProtocol.DisassembledInstruction[] = response.instructions;
-                            let msg = '';
-                            instructions.forEach(instr => msg += `${instr.address} | ${instr.instructionBytes} | ${instr.instruction} | ${instr.line} | ${instr.location}<br>`)
-                            this._panel.webview.postMessage({ command: "print", instruction: msg });
+                            // let msg = '';
+                            // instructions.forEach(instr => msg += `${instr.address} | ${instr.instructionBytes} | ${instr.instruction} | ${instr.line} | ${instr.location}<br>`)
+                            this._panel.webview.postMessage({ command: "print", instructions: instructions });
                         });
                     }
                     else {
@@ -97,6 +97,15 @@ export class DisassemblyPage {
 
 <button type="button" id="iothub">Refresh</button>
 <button type="button" id="stepToggle">Toggle Step: Unknown</button>
+<table id="assemblyTable" >
+  <thead>
+    <tr>
+        <th>BreakPoint</th>
+        <th>Address</th>
+        <th>Instructions</th>
+    </tr>
+  </thead>
+</table>
 <p id="assemblyResult" >::SCRIPT ERROR::</p>
 
 <script>
@@ -108,8 +117,13 @@ export class DisassemblyPage {
         const message = event.data; // The JSON data our extension sent
         switch (message.command) {
             case 'print':
-                if (message.instruction)
-                    document.getElementById('assemblyResult').innerHTML = message.instruction;
+                if (message.instructions) {
+                    let msg = "";
+                    message.instructions.forEach(instr => {
+                        msg += '<tr><input type="checkbox"><td>$\{instr.address\}</td><td>$\{instr.instruction\}</td><td>$\{instr.instructionBytes\}</td></tr>'
+                    });
+                    document.getElementById('assemblyTable').innerHTML = msg;
+                }
                 else
                     document.getElementById('assemblyResult').innerHTML = "Checked if debugger is active and breakpoint is hit.";
                 break;
