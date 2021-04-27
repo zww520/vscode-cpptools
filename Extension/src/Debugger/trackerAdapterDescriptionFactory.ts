@@ -149,7 +149,6 @@ export class CppDbgDebugAdapterTracker implements vscode.DebugAdapterTracker {
                         default:
                             break;
                     }
-
                 default:
                     break;
             }

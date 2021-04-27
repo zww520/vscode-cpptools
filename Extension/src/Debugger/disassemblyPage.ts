@@ -46,8 +46,6 @@ export class DisassemblyPage {
                     if (tracker) {
                         tracker.sendDisassemblyRequestByFrame(0, 0, 0, 10).then(response => {
                             const instructions: debugProtocol.DebugProtocol.DisassembledInstruction[] = response.instructions;
-                            // let msg = '';
-                            // instructions.forEach(instr => msg += `${instr.address} | ${instr.instructionBytes} | ${instr.instruction} | ${instr.line} | ${instr.location}<br>`)
                             this._panel.webview.postMessage({ command: "print", instructions: instructions });
                         });
                     }
@@ -67,8 +65,16 @@ export class DisassemblyPage {
 
                         break;
                     }
-                case 'toggleBreakPoint': {
+                case 'setBreakPoint': {
+                    const tracker = debugTracker.getActiveDebugAdapterTracker();
+                    if (tracker) {
+                        tracker.addDisassemblyBreakPoint(message.address, 0, undefined, undefined);
+                        tracker.sendDisassemblyBreakPoint().then(response => {
+                            const _response: debugProtocol.DebugProtocol.Breakpoint[] = response.breakpoints;
 
+                            this._panel.webview.postMessage({ command: "printBreakPoints", breakpoints: _response });
+                        });
+                    }
                 }
             }
         }, null, this._disposables);
@@ -100,7 +106,7 @@ export class DisassemblyPage {
 
 <button type="button" id="iothub">Refresh</button>
 <button type="button" id="stepToggle">Toggle Step: Unknown</button>
-<table id="assemblyTable" >
+<table  >
   <thead>
     <tr>
         <th>BreakPoint</th>
@@ -108,15 +114,19 @@ export class DisassemblyPage {
         <th>Instructions</th>
     </tr>
   </thead>
+  <tbody id="assemblyTable">
 </table>
-<p id="assemblyResult" >::SCRIPT ERROR::</p>
+<br>
+<p>Breakpoints:</p>
+<p id="breakPoints" />
+<p id="assemblyResult">::SCRIPT ERROR::</p>
 
 <script>
     document.getElementById('assemblyResult').innerHTML = "Script Loading...";
     const stepToggleButton = document.getElementById('stepToggle');
 
     function toggleIntructionBreakPoint(address) {
-        vscode.postMessage({ command: 'toggleBreakPoint', address: address });
+        vscode.postMessage({ command: 'setBreakPoint', address: address });
     }
 
     // Handle the message inside the webview
@@ -127,7 +137,7 @@ export class DisassemblyPage {
                 if (message.instructions) {
                     let msg = "";
                     message.instructions.forEach(instr => {
-                        msg += \`<tr><td><input type="checkbox" onclick="toggleIntructionBreakPoint(\${instr.address})"/></td><td>\${instr.address}</td><td>\${instr.instruction}</td><td>\${instr.instructionBytes}</td></tr>\`
+                        msg += \`<tr><td><input type="checkbox" onclick="toggleIntructionBreakPoint('\${instr.address}')"/></td><td>\${instr.address}</td><td>\${instr.instruction}</td><td>\${instr.instructionBytes}</td></tr>\`
                     });
                     document.getElementById('assemblyTable').innerHTML = msg;
                     document.getElementById('assemblyResult').innerHTML = "";
@@ -137,6 +147,15 @@ export class DisassemblyPage {
                 break;
             case 'toggleComplete':
                 stepToggleButton.innerHTML = 'Toggle Step: ' + (message.isInstructionStepping ? 'Instruction' : 'Source Code');
+                break;
+            case 'printBreakPoints': {
+                let msg = "";
+                message.breakpoints.forEach(bp => {
+                    msg += bp.instructionReference + '<br>';
+                });
+                document.getElementById('breakPoints').innerHTML = msg;
+                break;
+            }
         }
     });
 
