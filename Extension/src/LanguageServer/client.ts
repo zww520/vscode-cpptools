@@ -648,6 +648,7 @@ export interface Client {
     handleAddToIncludePathCommand(path: string): void;
     handleGoToDirectiveInGroup(next: boolean): Promise<void>;
     handleCheckForCompiler(): Promise<void>;
+    handleGenerateDefinitionOrDeclaration(): Promise<void>;
     onInterval(): void;
     dispose(): void;
     addFileAssociations(fileAssociations: string, languageId: string): void;
@@ -2806,6 +2807,14 @@ export class DefaultClient implements Client {
         }
     }
 
+    public async handleGenerateDefinitionOrDeclaration(): Promise<void> {
+        // TODO: Get active file and current cursor position.
+        // TODO: Send request for edits to native size
+        // TODO: Grab versions of all open files, in case one will be edited.
+        // TODO: If the file requiring edits was not already open, open it.
+        // Apply edit, only if file version has not changed (if was already open).
+    }
+
     public onInterval(): void {
         // These events can be discarded until the language client is ready.
         // Don't queue them up with this.notifyWhenLanguageClientReady calls.
@@ -2983,6 +2992,7 @@ class NullClient implements Client {
     handleAddToIncludePathCommand(path: string): void { }
     handleGoToDirectiveInGroup(next: boolean): Promise<void> { return Promise.resolve(); }
     handleCheckForCompiler(): Promise<void> { return Promise.resolve(); }
+    handleGenerateDefinitionOrDeclaration(): Promise<void> { return Promise.resolve(); }
     onInterval(): void { }
     dispose(): void {
         this.booleanEvent.dispose();
