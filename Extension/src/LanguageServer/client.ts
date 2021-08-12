@@ -63,6 +63,7 @@ let outputChannel: vscode.OutputChannel;
 let debugChannel: vscode.OutputChannel;
 let warningChannel: vscode.OutputChannel;
 let diagnosticsCollection: vscode.DiagnosticCollection;
+let refactorDiagnosticsCollection: vscode.DiagnosticCollection;
 const diagnostics: Map<string, vscode.Diagnostic[]>  = new Map<string, vscode.Diagnostic[]>();
 const refactorDiagnostics: Map<string, vscode.Diagnostic[]>  = new Map<string, vscode.Diagnostic[]>();
 let workspaceDisposables: vscode.Disposable[] = [];
@@ -149,7 +150,7 @@ function showWarning(params: ShowWarningParams): void {
     }
 }
 
-function publishDiagnostics(params: PublishDiagnosticsParams, isRefactorDiagnostics: boolean): void {
+function publishDiagnostics(params: PublishDiagnosticsParams): void {
     if (!diagnosticsCollection) {
         diagnosticsCollection = vscode.languages.createDiagnosticCollection("C/C++");
     }
@@ -165,31 +166,37 @@ function publishDiagnostics(params: PublishDiagnosticsParams, isRefactorDiagnost
         newDiagnostics.push(diagnostic);
     });
     const realUri: vscode.Uri = vscode.Uri.parse(params.uri);
-    if (isRefactorDiagnostics) {
-        if (newDiagnostics.length === 0) {
-            refactorDiagnostics.delete(params.uri);
-        } else {
-            refactorDiagnostics.set(params.uri, [...newDiagnostics]);
-        }
-        const otherDiagnostics: vscode.Diagnostic[] | undefined = diagnostics.get(params.uri);
-        if (otherDiagnostics !== undefined) {
-            newDiagnostics.push(...otherDiagnostics);
-        }
+    if (newDiagnostics.length === 0) {
+        diagnostics.delete(params.uri);
     } else {
-        if (newDiagnostics.length === 0) {
-            diagnostics.delete(params.uri);
-        } else {
-            diagnostics.set(params.uri, [...newDiagnostics]);
-        }
-        const otherDiagnostics: vscode.Diagnostic[] | undefined = refactorDiagnostics.get(params.uri);
-        if (otherDiagnostics !== undefined) {
-            newDiagnostics.push(...otherDiagnostics);
-        }
+        diagnostics.set(params.uri, newDiagnostics);
     }
     diagnosticsCollection.set(realUri, newDiagnostics);
-    if (!isRefactorDiagnostics) {
-        clientCollection.timeTelemetryCollector.setUpdateRangeTime(realUri);
+    clientCollection.timeTelemetryCollector.setUpdateRangeTime(realUri);
+}
+
+function publishRefactorDiagnostics(params: PublishDiagnosticsParams): void {
+    if (!refactorDiagnosticsCollection) {
+        refactorDiagnosticsCollection = vscode.languages.createDiagnosticCollection("C/C++");
     }
+
+    // Convert from our Diagnostic objects to vscode Diagnostic objects
+    const newDiagnostics: vscode.Diagnostic[] = [];
+    params.diagnostics.forEach((d) => {
+        const message: string = util.getLocalizedString(d.localizeStringParams);
+        const r: vscode.Range = new vscode.Range(d.range.start.line, d.range.start.character, d.range.end.line, d.range.end.character);
+        const diagnostic: vscode.Diagnostic = new vscode.Diagnostic(r, message, d.severity);
+        diagnostic.code = d.code;
+        diagnostic.source = d.source;
+        newDiagnostics.push(diagnostic);
+    });
+    const realUri: vscode.Uri = vscode.Uri.parse(params.uri);
+    if (newDiagnostics.length === 0) {
+        refactorDiagnostics.delete(params.uri);
+    } else {
+        refactorDiagnostics.set(params.uri, newDiagnostics);
+    }
+    refactorDiagnosticsCollection.set(realUri, newDiagnostics);
 }
 
 interface WorkspaceFolderParams {
@@ -2044,8 +2051,8 @@ export class DefaultClient implements Client {
             const client: DefaultClient = <DefaultClient>clientCollection.getClientFor(vscode.Uri.file(requestFile));
             client.handleRequestCustomConfig(requestFile);
         });
-        this.languageClient.onNotification(PublishDiagnosticsNotification, (e) => publishDiagnostics(e, false));
-        this.languageClient.onNotification(PublishRefactorDiagnosticsNotification,  (e) => publishDiagnostics(e, true));
+        this.languageClient.onNotification(PublishDiagnosticsNotification, publishDiagnostics);
+        this.languageClient.onNotification(PublishRefactorDiagnosticsNotification, publishRefactorDiagnostics);
         this.languageClient.onNotification(ShowMessageWindowNotification, showMessageWindow);
         this.languageClient.onNotification(ShowWarningNotification, showWarning);
         this.languageClient.onNotification(ReportTextDocumentLanguage, (e) => this.setTextDocumentLanguage(e));
