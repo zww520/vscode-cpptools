@@ -691,7 +691,7 @@ export interface Client {
     handleAddToIncludePathCommand(path: string): void;
     handleGoToDirectiveInGroup(next: boolean): Promise<void>;
     handleCheckForCompiler(): Promise<void>;
-    handleCreateDeclarationOrDefinition(): Promise<void>;
+    handleCreateDeclarationOrDefinition(uri: vscode.Uri | undefined, line: number | undefined, character: number | undefined): Promise<void>;
     onInterval(): void;
     dispose(): void;
     addFileAssociations(fileAssociations: string, languageId: string): void;
@@ -2890,23 +2890,44 @@ export class DefaultClient implements Client {
         }
     }
 
-    public async handleCreateDeclarationOrDefinition(): Promise<void> {
-        const editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
-        if (editor) {
-            let range: vscode.Range;
-            if (editor.selection.isEmpty) {
-                range = new vscode.Range(editor.selection.active, editor.selection.active);
-            } else if (editor.selection.isReversed) {
-                range = new vscode.Range(editor.selection.active, editor.selection.anchor);
-            } else {
-                range = new vscode.Range(editor.selection.anchor, editor.selection.active);
+    public async handleCreateDeclarationOrDefinition(uri: vscode.Uri | undefined, line: number | undefined, character: number | undefined): Promise<void> {
+        let range: vscode.Range | undefined;
+        if (uri) {
+            // If uri is specified, line and column must also be specified.
+            if (line === undefined || character === undefined) {
+                return;
             }
+            range = new vscode.Range(line, character, line, character);
+        } else {
+            // If file is not specified, range will always be based on the cursor position.
+            const editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
+            if (editor) {
+                uri = editor.document.uri;
+                if (editor.selection.isEmpty) {
+                    range = new vscode.Range(editor.selection.active, editor.selection.active);
+                } else if (editor.selection.isReversed) {
+                    range = new vscode.Range(editor.selection.active, editor.selection.anchor);
+                } else {
+                    range = new vscode.Range(editor.selection.anchor, editor.selection.active);
+                }
+            }
+        }
+        if (uri && range) {
             const params: CreateDeclarationOrDefinitionParams = {
-                uri: editor.document.uri.toString(),
-                range: range
+                uri: uri.toString(),
+                range: {
+                    start: {
+                        character: range.start.character,
+                        line: range.start.line
+                    },
+                    end: {
+                        character: range.end.character,
+                        line: range.end.line
+                    }
+                }
             };
             const result: CreateDeclarationOrDefinitionResult = await this.languageClient.sendRequest(CreateDeclarationOrDefinitionRequest, params);
-            if (result.uri) {
+            if (result.uri.length > 0) {
             }
             // TODO: If the file requiring edits was not already open, open it.
             // Apply edit, only if file version has not changed (if was already open).
@@ -3090,7 +3111,7 @@ class NullClient implements Client {
     handleAddToIncludePathCommand(path: string): void { }
     handleGoToDirectiveInGroup(next: boolean): Promise<void> { return Promise.resolve(); }
     handleCheckForCompiler(): Promise<void> { return Promise.resolve(); }
-    handleCreateDeclarationOrDefinition(): Promise<void> { return Promise.resolve(); }
+    handleCreateDeclarationOrDefinition(uri: vscode.Uri | undefined, line: number | undefined, character: number | undefined): Promise<void> { return Promise.resolve(); }
     onInterval(): void { }
     dispose(): void {
         this.booleanEvent.dispose();

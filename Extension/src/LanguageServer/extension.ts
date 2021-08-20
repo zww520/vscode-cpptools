@@ -949,10 +949,10 @@ function onCheckForCompiler(): void {
     client.handleCheckForCompiler();
 }
 
-function onCreateDeclarationOrDefinition(): void {
+function onCreateDeclarationOrDefinition(uri: vscode.Uri | undefined, line: number | undefined, character: number | undefined): void {
     onActivationEvent();
     const client: Client = getActiveClient();
-    client.handleCreateDeclarationOrDefinition();
+    client.handleCreateDeclarationOrDefinition(uri, line, character);
 }
 
 function onAddToIncludePath(path: string): void {
