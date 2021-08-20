@@ -793,7 +793,7 @@ export function registerCommands(): void {
     disposables.push(vscode.commands.registerCommand('C_Cpp.GoToNextDirectiveInGroup', onGoToNextDirectiveInGroup));
     disposables.push(vscode.commands.registerCommand('C_Cpp.GoToPrevDirectiveInGroup', onGoToPrevDirectiveInGroup));
     disposables.push(vscode.commands.registerCommand('C_Cpp.CheckForCompiler', onCheckForCompiler));
-    disposables.push(vscode.commands.registerCommand('C_Cpp.GenerateDefinitionOrDeclaration', onGenerateDefinitionOrDeclaration));
+    disposables.push(vscode.commands.registerCommand('C_Cpp.CreateDeclarationOrDefinition', onCreateDeclarationOrDefinition));
     disposables.push(vscode.commands.registerCommand('cpptools.activeConfigName', onGetActiveConfigName));
     disposables.push(vscode.commands.registerCommand('cpptools.activeConfigCustomVariable', onGetActiveConfigCustomVariable));
     disposables.push(vscode.commands.registerCommand('cpptools.setActiveConfigName', onSetActiveConfigName));
@@ -949,10 +949,10 @@ function onCheckForCompiler(): void {
     client.handleCheckForCompiler();
 }
 
-function onGenerateDefinitionOrDeclaration(): void {
+function onCreateDeclarationOrDefinition(): void {
     onActivationEvent();
     const client: Client = getActiveClient();
-    client.handleGenerateDefinitionOrDeclaration();
+    client.handleCreateDeclarationOrDefinition();
 }
 
 function onAddToIncludePath(path: string): void {

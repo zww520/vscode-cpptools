@@ -1429,6 +1429,11 @@
         "command": "C_Cpp.GoToPrevDirectiveInGroup",
         "title": "%c_cpp.command.GoToPrevDirectiveInGroup.title%",
         "category": "C/C++"
+      },
+      {
+        "command": "C_Cpp.CreateDeclarationOrDefinition",
+        "title": "%c_cpp.command.createDeclarationOrDefinition.title%",
+        "category": "C/C++"
       }
     ],
     "keybindings": [

@@ -479,12 +479,21 @@ interface GoToDirectiveInGroupParams {
     uri: string;
     position: Position;
     next: boolean;
-};
+}
 
 interface SetTemporaryTextDocumentLanguageParams {
     path: string;
     isC: boolean;
     isCuda: boolean;
+}
+
+interface CreateDeclarationOrDefinitionParams {
+    uri: string;
+    range: Range;
+}
+
+interface CreateDeclarationOrDefinitionResult {
+    uri: string;
 }
 
 // Requests
@@ -501,6 +510,7 @@ export const FormatDocumentRequest: RequestType<FormatParams, TextEdit[], void, 
 export const FormatRangeRequest: RequestType<FormatParams, TextEdit[], void, void> = new RequestType<FormatParams, TextEdit[], void, void>('cpptools/formatRange');
 export const FormatOnTypeRequest: RequestType<FormatParams, TextEdit[], void, void> = new RequestType<FormatParams, TextEdit[], void, void>('cpptools/formatOnType');
 const GoToDirectiveInGroupRequest: RequestType<GoToDirectiveInGroupParams, Position | undefined, void, void> = new RequestType<GoToDirectiveInGroupParams, Position | undefined, void, void>('cpptools/goToDirectiveInGroup');
+const CreateDeclarationOrDefinitionRequest: RequestType<CreateDeclarationOrDefinitionParams, CreateDeclarationOrDefinitionResult, void, void> = new RequestType<CreateDeclarationOrDefinitionParams, CreateDeclarationOrDefinitionResult, void, void>('cpptools/createDeclarationOrDefinition');
 
 // Notifications to the server
 const DidOpenNotification: NotificationType<DidOpenTextDocumentParams, void> = new NotificationType<DidOpenTextDocumentParams, void>('textDocument/didOpen');
@@ -681,7 +691,7 @@ export interface Client {
     handleAddToIncludePathCommand(path: string): void;
     handleGoToDirectiveInGroup(next: boolean): Promise<void>;
     handleCheckForCompiler(): Promise<void>;
-    handleGenerateDefinitionOrDeclaration(): Promise<void>;
+    handleCreateDeclarationOrDefinition(): Promise<void>;
     onInterval(): void;
     dispose(): void;
     addFileAssociations(fileAssociations: string, languageId: string): void;
@@ -2880,12 +2890,27 @@ export class DefaultClient implements Client {
         }
     }
 
-    public async handleGenerateDefinitionOrDeclaration(): Promise<void> {
-        // TODO: Get active file and current cursor position.
-        // TODO: Send request for edits to native size
-        // TODO: Grab versions of all open files, in case one will be edited.
-        // TODO: If the file requiring edits was not already open, open it.
-        // Apply edit, only if file version has not changed (if was already open).
+    public async handleCreateDeclarationOrDefinition(): Promise<void> {
+        const editor: vscode.TextEditor | undefined = vscode.window.activeTextEditor;
+        if (editor) {
+            let range: vscode.Range;
+            if (editor.selection.isEmpty) {
+                range = new vscode.Range(editor.selection.active, editor.selection.active);
+            } else if (editor.selection.isReversed) {
+                range = new vscode.Range(editor.selection.active, editor.selection.anchor);
+            } else {
+                range = new vscode.Range(editor.selection.anchor, editor.selection.active);
+            }
+            const params: CreateDeclarationOrDefinitionParams = {
+                uri: editor.document.uri.toString(),
+                range: range
+            };
+            const result: CreateDeclarationOrDefinitionResult = await this.languageClient.sendRequest(CreateDeclarationOrDefinitionRequest, params);
+            if (result.uri) {
+            }
+            // TODO: If the file requiring edits was not already open, open it.
+            // Apply edit, only if file version has not changed (if was already open).
+        }
     }
 
     public onInterval(): void {
@@ -3065,7 +3090,7 @@ class NullClient implements Client {
     handleAddToIncludePathCommand(path: string): void { }
     handleGoToDirectiveInGroup(next: boolean): Promise<void> { return Promise.resolve(); }
     handleCheckForCompiler(): Promise<void> { return Promise.resolve(); }
-    handleGenerateDefinitionOrDeclaration(): Promise<void> { return Promise.resolve(); }
+    handleCreateDeclarationOrDefinition(): Promise<void> { return Promise.resolve(); }
     onInterval(): void { }
     dispose(): void {
         this.booleanEvent.dispose();
